@@ -22,5 +22,5 @@ Group geometries using one field, calculate stats on the other fields (mean, sum
 
 def classFactory(iface):
     # load DissolveWithStats class from file dissolve_stats
-    from dissolve_stats import DissolveWithStats
+    from .dissolve_stats import DissolveWithStats
     return DissolveWithStats(iface)

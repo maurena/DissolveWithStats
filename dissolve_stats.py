@@ -19,14 +19,15 @@ Group geometries using one field, calculate stats on the other fields (mean, sum
  ***************************************************************************/
 """
 # Import the PyQt and QGIS libraries
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 from qgis.core import *
 from qgis.gui import *
 # Initialize Qt resources from file resources.py
-import resources
+from . import resources
 # Import the code for the dialog
-import dissolve_stats_dialog
+from . import dissolve_stats_dialog
 import os.path
 
 
@@ -53,7 +54,7 @@ class DissolveWithStats:
         self.action = QAction(QIcon(":/plugins/DissolveWithStats/dissolve_stats.png"), \
             "Dissolve with stats", self.iface.mainWindow())
         # connect the action to the run method
-        QObject.connect(self.action, SIGNAL("triggered()"), self.run)
+        self.action.triggered.connect(self.run)
 
         # Add toolbar button and menu item
         self.iface.addToolBarIcon(self.action)

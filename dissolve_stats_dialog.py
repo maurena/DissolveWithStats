@@ -19,11 +19,10 @@ Group geometries using one field, calculate stats on the other fields (mean, sum
  ***************************************************************************/
 """
 
-from PyQt4 import QtCore
-from PyQt4 import QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from qgis.core import *
 from qgis.gui import *
-from ui_dissolve_stats import Ui_DissolveWithStats
+from .ui_dissolve_stats import Ui_DissolveWithStats
 import os.path
 import processing
 import sys
@@ -36,11 +35,13 @@ statNum = ["Count", "First", "Last", "Max", "Mean", "Median", "Min", "Standard d
 # the stats which can be calculated for non numeric fields
 statElse = ["Count", "Concatenation", "First", "Last", "Uniquification"]
 
+#FORM_CLASS, _ = uic.loadUiType(os.path.join(
+#    os.path.dirname(__file__), 'ui_dissolve_stats_qt5.ui'))
 
 # create the dialog
-class DissolveWithStatsDialog(QtGui.QDialog, Ui_DissolveWithStats):
+class DissolveWithStatsDialog(QtWidgets.QDialog, Ui_DissolveWithStats):
     def __init__(self, iface):
-        QtGui.QDialog.__init__(self)
+        QtWidgets.QDialog.__init__(self)
         self.iface = iface
         # Set up the user interface from Designer.
         self.ui = Ui_DissolveWithStats()
@@ -58,8 +59,9 @@ class DissolveWithStatsDialog(QtGui.QDialog, Ui_DissolveWithStats):
         self.ui.buttonBox.rejected.connect(self.reject)
 
         # to get all the vector layers names to populate combo box comboLayerList
-        legendInterface = self.iface.legendInterface()
-        listLayerName = [i.name() for i in legendInterface.layers() if i.type() == QgsMapLayer.VectorLayer]
+        # legendInterface = self.iface.legendInterface()
+        # listLayerName = [i.name() for i in legendInterface.layers() if i.type() == QgsMapLayer.VectorLayer]
+        listLayerName = [tree_layer.layer().name() for tree_layer in QgsProject.instance().layerTreeRoot().findLayers() if tree_layer.layer().type() == QgsMapLayer.VectorLayer]
         # add all these layer names to combo box comboLayerList
         self.ui.comboLayerList.addItems(listLayerName)
         
@@ -75,10 +77,10 @@ class DissolveWithStatsDialog(QtGui.QDialog, Ui_DissolveWithStats):
         # Run the dialog event loop
         result = self.exec_()
         # if Cancel was pressed
-        if result == QtGui.QFileDialog.Rejected:
+        if result == QtWidgets.QFileDialog.Rejected:
             return
         # If OK was pressed
-        if result == QtGui.QFileDialog.Accepted:
+        if result == QtWidgets.QFileDialog.Accepted:
 #            try:
             # get selected layer in combo box comboLayerList
             selectedLayerName = self.ui.comboLayerList.currentText()
@@ -92,8 +94,10 @@ class DissolveWithStatsDialog(QtGui.QDialog, Ui_DissolveWithStats):
                 listStats.append(self.ui.tableFields.cellWidget(row,3).currentText())
             # get output shape
             output = self.ui.outShape.text()
+            
+            #processing.runalg("qgis:dissolve", selectedLayerName, "false", selectedFieldName, output)
             # run qgis:dissolve algorithm from processing module
-            processing.runalg("qgis:dissolve", selectedLayerName, "false", selectedFieldName, output)
+            layer = processing.run("native:dissolve", {'INPUT':selectedLayerName,'FIELD':[selectedFieldName],'OUTPUT':output})
             # calculate new field values
             listRes = self.calculateFields(listKeep, listStats, output)
             # integrates these new values in the output attribute table, and remove fields if necessary
@@ -116,10 +120,11 @@ class DissolveWithStatsDialog(QtGui.QDialog, Ui_DissolveWithStats):
         # get selected layer, to test self.ui.outShape.text()
         if self.ui.comboLayerList.currentText() != '':
             index = self.ui.comboLayerList.currentIndex()
-            legendInterface = self.iface.legendInterface()
-            listLayers = [layer for layer in legendInterface.layers() if layer.type() == QgsMapLayer.VectorLayer]
+            # legendInterface = self.iface.legendInterface()
+            # listLayers = [layer for layer in legendInterface.layers() if layer.type() == QgsMapLayer.VectorLayer]
+            listLayers = [tree_layer.layer() for tree_layer in QgsProject.instance().layerTreeRoot().findLayers() if tree_layer.layer().type() == QgsMapLayer.VectorLayer]
             selectedLayer = listLayers[index]
-            outfile = QgsVectorFileWriter(self.ui.outShape.text(), "utf-8", selectedLayer.dataProvider().fields(), selectedLayer.dataProvider().geometryType(), selectedLayer.crs())
+            outfile = QgsVectorFileWriter(self.ui.outShape.text(), "utf-8", selectedLayer.dataProvider().fields(), selectedLayer.dataProvider().wkbType(), selectedLayer.crs())
         # if no layer is selected :
         if self.ui.comboLayerList.currentText() == '':
             message = 'No layer selected\nQGIS must have at least one vector layer loaded'
@@ -150,8 +155,9 @@ class DissolveWithStatsDialog(QtGui.QDialog, Ui_DissolveWithStats):
     # actualize the values in comboFieldList and in tableFields
     def onChangedValueLayer(self, index):
         # get list of all vector layers in QGIS
-        legendInterface = self.iface.legendInterface()
-        listLayers = [layer for layer in legendInterface.layers() if layer.type() == QgsMapLayer.VectorLayer]
+        # legendInterface = self.iface.legendInterface()
+        # listLayers = [layer for layer in legendInterface.layers() if layer.type() == QgsMapLayer.VectorLayer]
+        listLayers = [tree_layer.layer() for tree_layer in QgsProject.instance().layerTreeRoot().findLayers() if tree_layer.layer().type() == QgsMapLayer.VectorLayer]
         # get name of selected layer
         provider = listLayers[index].dataProvider()
         fields = provider.fields()
@@ -165,21 +171,21 @@ class DissolveWithStatsDialog(QtGui.QDialog, Ui_DissolveWithStats):
         # populate columns in field table
         for i in range (self.ui.tableFields.rowCount()):
             # first column : field names
-            nameitem = QtGui.QTableWidgetItem(fields[i].name())
+            nameitem = QtWidgets.QTableWidgetItem(fields[i].name())
             # the names are not editable
             nameitem.setFlags(QtCore.Qt.ItemIsSelectable |  QtCore.Qt.ItemIsEnabled)
             self.ui.tableFields.setItem(i, 0, nameitem)
             # second column : field types
-            typeitem = QtGui.QTableWidgetItem(fields[i].typeName())
+            typeitem = QtWidgets.QTableWidgetItem(fields[i].typeName())
             # the types are not editable
             typeitem.setFlags(QtCore.Qt.ItemIsSelectable |  QtCore.Qt.ItemIsEnabled)
             self.ui.tableFields.setItem(i, 1, typeitem)
             # third column : check box
-            keepcheckbox = QtGui.QCheckBox()
+            keepcheckbox = QtWidgets.QCheckBox()
             keepcheckbox.setCheckState(QtCore.Qt.Checked)
             keepitem = self.ui.tableFields.setCellWidget(i, 2, keepcheckbox)
             # fourth column : stat
-            listStat = QtGui.QComboBox()
+            listStat = QtWidgets.QComboBox()
             # if field is numeric (works also for PostGIS data, fix by DelazJ, and for int64 and double, fix by A. Ferraton)
             if fields[i].type() in [QtCore.QVariant.Int, QtCore.QVariant.Double, 2, 4, 6]:
                 listStat.addItems(statNum)
@@ -208,10 +214,11 @@ class DissolveWithStatsDialog(QtGui.QDialog, Ui_DissolveWithStats):
     def outFile(self): # by Carson Farmer 2008
         # display file dialog for output shapefile
         self.ui.outShape.clear()
-        fileDialog = QtGui.QFileDialog()
-        fileDialog.setConfirmOverwrite(False)
+        fileDialog = QtWidgets.QFileDialog()
+        # No needed in PyQt5
+        #fileDialog.setConfirmOverwrite(False) 
         outName = fileDialog.getSaveFileName(self, "Output Shapefile",".", "Shapefiles (*.shp)")
-        outPath = QtCore.QFileInfo(outName).absoluteFilePath()
+        outPath = QtCore.QFileInfo(outName[0]).absoluteFilePath()
         if not outPath.upper().endswith(".SHP"):
             outPath = outPath + ".shp"
         if outName:
@@ -241,13 +248,14 @@ class DissolveWithStatsDialog(QtGui.QDialog, Ui_DissolveWithStats):
     def calculateFields(self, listKeep, listStats, output):
         # get selected layer
         index = self.ui.comboLayerList.currentIndex()
-        legendInterface = self.iface.legendInterface()
-        listLayers = [layer for layer in legendInterface.layers() if layer.type() == QgsMapLayer.VectorLayer]
+        #legendInterface = self.iface.legendInterface()
+        #listLayers = [layer for layer in legendInterface.layers() if layer.type() == QgsMapLayer.VectorLayer]
+        listLayers = [tree_layer.layer() for tree_layer in QgsProject.instance().layerTreeRoot().findLayers() if tree_layer.layer().type() == QgsMapLayer.VectorLayer]
         selectedLayer = listLayers[index]
         # iterates over layer features to get attributes as a list of lists
         # uses the processing method so as to get only selected features if this option is set in the processing options
-        iter = processing.features(selectedLayer)
-        attrs = [feature.attributes() for feature in iter]
+        #iter = processing.features(selectedLayer)
+        attrs = [feature.attributes() for feature in selectedLayer.getFeatures()]
         # get all values of the dissolve field (before processing : with duplicate values)
         indexDissolveField = self.ui.comboFieldList.currentIndex()
         valuesDissolveField = [feature[indexDissolveField] for feature in attrs]
@@ -330,7 +338,8 @@ class DissolveWithStatsDialog(QtGui.QDialog, Ui_DissolveWithStats):
         layerNameSHP = output.split('/')[-1]
         layerName = layerNameSHP.split('.')[0]
         layer = QgsVectorLayer(output, layerName, "ogr")
-        QgsMapLayerRegistry.instance().addMapLayer(layer)
+        QgsProject.instance().addMapLayer(layer)
+        #QgsMapLayerRegistry.instance().addMapLayer(layer)
 
 
 
